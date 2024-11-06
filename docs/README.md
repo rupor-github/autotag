@@ -1,10 +1,13 @@
 AutoTag
 =======
 
-[![CI](https://github.com/pantheon-systems/autotag/actions/workflows/workflow.yml/badge.svg)](https://github.com/pantheon-systems/autotag/actions/workflows/workflow.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/pantheon-systems/autotag)](https://goreportcard.com/report/github.com/pantheon-systems/autotag)
-[![Actively Maintained](https://img.shields.io/badge/Pantheon-Actively_Maintained-yellow?logo=pantheon&color=FFDC28)](https://pantheon.io/docs/oss-support-levels#actively-maintained-support)
+This fork has some additional functionality:
+    1. added check that worktree is in a sane state before tag could be created
+    2. added ability to push tag to the remote Automatically
 
+All original licenses are in place and ownership is unchanged. At the moment I do not have time to submit a proper PR back so I took some shortcuts.
+Modifications attempt to leave all original functionality in place and are either off by default or could be turned off with cli option.
+This allows program to cater for slightly different scenario than authors intended (not being part of CI/CD pipeline) a bit better.
 
 Automatically increment version tags to a git repo based on commit messages.
 
