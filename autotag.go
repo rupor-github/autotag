@@ -111,6 +111,15 @@ type GitRepoConfig struct {
 
 	// Prefix prepends literal 'v' to the tag, eg: v1.0.0. Enabled by default
 	Prefix bool
+
+	// Check worktree status
+	Check bool
+
+	// Automatically push the new tag to the remote origin
+	Push bool
+
+	// Remote name to push the tag to
+	Remote string
 }
 
 // GitRepo represents a repository we want to run actions against
@@ -130,6 +139,8 @@ type GitRepo struct {
 	scheme string
 
 	prefix bool
+	push   bool
+	remote string
 }
 
 // NewRepo is a constructor for a repo object, parsing the tags that exist
@@ -157,27 +168,21 @@ func NewRepo(cfg GitRepoConfig) (*GitRepo, error) {
 		return nil, err
 	}
 
+	if cfg.Check {
+		log.Println("Checking state of repository worktree")
+		if err := checkRepoState(gitDirPath); err != nil {
+			return nil, err
+		}
+	}
+
+	// MMB: use the current branch as the default
 	if cfg.Branch == "" {
-		branches, err := repo.Branches()
+		currBranch, err := repo.RevParse("HEAD", git.RevParseOptions{CommandOptions: git.CommandOptions{Args: []string{"--abbrev-ref"}}})
 		if err != nil {
 			return nil, err
 		}
-
-		// Locate main or master branch.
-		// If main is found, stop searching and use it.
-		// If master is found first, store it, but keep searching for main.
-		for _, b := range branches {
-			if b == "main" {
-				cfg.Branch = "main"
-				break
-			}
-			if b == "master" {
-				cfg.Branch = "master"
-			}
-		}
-		if cfg.Branch == "" {
-			return nil, fmt.Errorf("no main or master branch found")
-		}
+		log.Println("Current branch is", currBranch)
+		cfg.Branch = currBranch
 	}
 
 	r := &GitRepo{
@@ -188,6 +193,8 @@ func NewRepo(cfg GitRepoConfig) (*GitRepo, error) {
 		buildMetadata:             cfg.BuildMetadata,
 		scheme:                    cfg.Scheme,
 		prefix:                    cfg.Prefix,
+		push:                      cfg.Push,
+		remote:                    cfg.Remote,
 	}
 
 	err = r.parseTags()
@@ -228,6 +235,26 @@ func generateGitDirPath(repoPath string) (string, error) {
 	}
 
 	return filepath.Join(absolutePath, ".git"), nil
+}
+
+// check if repo is in a good state for tagging
+func checkRepoState(repoPath string) error {
+	path := filepath.Dir(repoPath)
+	stdout, err := git.NewCommand("ls-files", "--other", "--error-unmatch", "--exclude-standard").RunInDirWithTimeout(0, path)
+	if err != nil || len(stdout) > 0 {
+		return errors.New("untracked files detected")
+	}
+	if _, err := git.NewCommand("diff-files", "--quiet", "--").RunInDirWithTimeout(0, path); err != nil {
+		return errors.New("unstaged changes detected")
+	}
+	if _, err := git.NewCommand("diff-index", "--cached", "--quiet", "HEAD", "--").RunInDirWithTimeout(0, path); err != nil {
+		return errors.New("uncommited changes detected")
+	}
+	stdout, err = git.NewCommand("branch", "-r", "--contains", "HEAD").RunInDirWithTimeout(0, path)
+	if err != nil || len(bytes.Split(stdout, []byte("\n"))) == 0 {
+		return errors.New("commit at HEAD is not present on remote")
+	}
+	return nil
 }
 
 // Parse tags on repo, sort them, and store the most recent revision in the repo object
@@ -449,7 +476,15 @@ func (r *GitRepo) tagNewVersion() error {
 	log.Println("Writing Tag", tagName)
 	err := r.repo.CreateTag(tagName, r.branchID)
 	if err != nil {
-		return fmt.Errorf("error creating tag: %s", err.Error())
+		return fmt.Errorf("error creating tag: %w", err)
+	}
+
+	if r.push {
+		log.Println("Pushing Tag", tagName)
+		_, err = git.NewCommand("push", r.remote, "refs/tags/"+tagName).RunInDirWithTimeout(0, r.repo.Path())
+		if err != nil {
+			return fmt.Errorf("error pushing tag: %w", err)
+		}
 	}
 	return nil
 }
