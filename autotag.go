@@ -175,7 +175,7 @@ func NewRepo(cfg GitRepoConfig) (*GitRepo, error) {
 		}
 	}
 
-	// MMB: use the current branch as the default
+	// use the current worktree branch as the default
 	if cfg.Branch == "" {
 		currBranch, err := repo.RevParse("HEAD", git.RevParseOptions{CommandOptions: git.CommandOptions{Args: []string{"--abbrev-ref"}}})
 		if err != nil {
@@ -240,17 +240,17 @@ func generateGitDirPath(repoPath string) (string, error) {
 // check if repo is in a good state for tagging
 func checkRepoState(repoPath string) error {
 	path := filepath.Dir(repoPath)
-	stdout, err := git.NewCommand("ls-files", "--other", "--error-unmatch", "--exclude-standard").RunInDirWithTimeout(0, path)
+	stdout, err := git.NewCommand("ls-files", "--other", "--error-unmatch", "--exclude-standard").RunInDir(path)
 	if err != nil || len(stdout) > 0 {
 		return errors.New("untracked files detected")
 	}
-	if _, err := git.NewCommand("diff-files", "--quiet", "--").RunInDirWithTimeout(0, path); err != nil {
+	if _, err := git.NewCommand("diff-files", "--quiet", "--").RunInDir(path); err != nil {
 		return errors.New("unstaged changes detected")
 	}
-	if _, err := git.NewCommand("diff-index", "--cached", "--quiet", "HEAD", "--").RunInDirWithTimeout(0, path); err != nil {
+	if _, err := git.NewCommand("diff-index", "--cached", "--quiet", "HEAD", "--").RunInDir(path); err != nil {
 		return errors.New("uncommited changes detected")
 	}
-	stdout, err = git.NewCommand("branch", "-r", "--contains", "HEAD").RunInDirWithTimeout(0, path)
+	stdout, err = git.NewCommand("branch", "-r", "--contains", "HEAD").RunInDir(path)
 	if err != nil || len(bytes.Split(stdout, []byte("\n"))) == 0 {
 		return errors.New("commit at HEAD is not present on remote")
 	}
@@ -481,7 +481,7 @@ func (r *GitRepo) tagNewVersion() error {
 
 	if r.push {
 		log.Println("Pushing Tag", tagName)
-		_, err = git.NewCommand("push", r.remote, "refs/tags/"+tagName).RunInDirWithTimeout(0, r.repo.Path())
+		_, err = git.NewCommand("push", r.remote, "refs/tags/"+tagName).RunInDir(r.repo.Path())
 		if err != nil {
 			return fmt.Errorf("error pushing tag: %w", err)
 		}
