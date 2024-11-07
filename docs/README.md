@@ -1,15 +1,19 @@
 AutoTag
 =======
 
-This fork has some additional functionality:
+This fork has some additional functionality
+-------------------------------------------
 
-* added check that worktree is in a sane state before tag could be created
-* added ability to push tag to the remote Automatically
-* when no branch is specified it will pick up current one from worktree, rather than looking for "main" or "master" which could be specified explicitely.
+* added check that git worktree is in a sane state before tag created
+* added ability to push tag to the remote (-P, -R)
+* when no branch specified it will pick up current one from worktree, rather than looking for "main" or "master" (could be specified explicitly).
 
-All original licenses are in place and ownership is unchanged. At the moment I do not have time to submit a proper PR back so I took some shortcuts.
-Modifications attempt to leave all original functionality in place and are either off by default or could be turned off with cli option.
-This allows program to cater for slightly different scenario than authors intended (not being part of CI/CD pipeline) a bit better.
+All original licenses are in place and ownership unchanged. At the moment I do not have time to submit a proper PR back as I took some shortcuts.
+Modifications attempt to leave all original functionality in place and are either off by default or could be turned off with proper CLI switch.
+
+This enables program to cater for slightly different scenario than authors intended (not being part of CI/CD pipeline) just a bit better.
+
+-------------------------------------------
 
 Automatically increment version tags to a git repo based on commit messages.
 
@@ -57,7 +61,7 @@ Installing
 | ----- | ---------------------------------------------------------------- |
 | amd64 | `quay.io/pantheon-public/autotag:latest`, `vX.Y.Z`, `vX.Y`, `vX` |
 
-[releases]: https://github.com/pantheon-systems/autotag/releases/latest
+[releases]: https://github.com/rupor-github/autotag/releases/latest
 
 ### One-liner
 
