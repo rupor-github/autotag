@@ -85,6 +85,19 @@ type GitRepoConfig struct {
 	// 		v1.2.3-pre.1499308568
 	PreReleaseTimestampLayout string
 
+	// PreReleaseAttempt is the optional value that's used to appent a number to the git tag.
+	// Negative value must be provided if not used (backward compatibilty requirement).
+	// If PreReleaseName is an empty string, attempt will be appended
+	// directly to the SemVer tag:
+	//
+	// 		v1.2.3-0
+	//
+	// Assuming PreReleaseName is set to `pre`, the timestamp is appended to
+	// that value separated by a period (`.`):
+	//
+	// 		v1.2.3-pre.0
+	PreReleaseAttempt int
+
 	// BuildMetadata is an optional string appended by a plus sign and a series of dot separated
 	// identifiers immediately following the patch or pre-release version. Identifiers MUST comprise
 	// only ASCII alphanumerics and hyphen [0-9A-Za-z-]. Identifiers MUST NOT be empty. Build metadata
@@ -134,6 +147,7 @@ type GitRepo struct {
 
 	preReleaseName            string
 	preReleaseTimestampLayout string
+	preReleaseAttempt         int
 	buildMetadata             string
 
 	scheme string
@@ -190,6 +204,7 @@ func NewRepo(cfg GitRepoConfig) (*GitRepo, error) {
 		branch:                    cfg.Branch,
 		preReleaseName:            cfg.PreReleaseName,
 		preReleaseTimestampLayout: cfg.PreReleaseTimestampLayout,
+		preReleaseAttempt:         cfg.PreReleaseAttempt,
 		buildMetadata:             cfg.BuildMetadata,
 		scheme:                    cfg.Scheme,
 		prefix:                    cfg.Prefix,
@@ -216,6 +231,10 @@ func validateConfig(cfg GitRepoConfig) error {
 
 	if cfg.PreReleaseName != "" && !validateSemVerPreReleaseName(cfg.PreReleaseName) {
 		return fmt.Errorf("'%s' is not valid SemVer pre-release name", cfg.PreReleaseName)
+	}
+
+	if cfg.PreReleaseAttempt >= 0 && cfg.PreReleaseTimestampLayout != "" {
+		return fmt.Errorf("prerelease cannot have both attempt (%d) and timestamp (%s) defined, use one of them", cfg.PreReleaseAttempt, cfg.PreReleaseTimestampLayout)
 	}
 
 	switch cfg.PreReleaseTimestampLayout {
@@ -351,8 +370,8 @@ func (r *GitRepo) retrieveBranchInfo() error {
 	return nil
 }
 
-func preReleaseVersion(v *version.Version, name, tsLayout string) (*version.Version, error) {
-	if len(name) == 0 && len(tsLayout) == 0 {
+func preReleaseVersion(v *version.Version, name, tsLayout string, attempt int) (*version.Version, error) {
+	if len(name) == 0 && len(tsLayout) == 0 && attempt < 0 {
 		return v, nil
 	}
 
@@ -389,6 +408,18 @@ func preReleaseVersion(v *version.Version, name, tsLayout string) (*version.Vers
 		}
 
 		if _, err := buf.WriteString(timestamp); err != nil {
+			return nil, err
+		}
+	}
+
+	log.Println("attempt", attempt)
+	if attempt >= 0 {
+		if buf.Len() > 0 {
+			if _, err := buf.WriteString("."); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := buf.WriteString(strconv.Itoa(attempt)); err != nil {
 			return nil, err
 		}
 	}
@@ -444,9 +475,9 @@ func (r *GitRepo) calcVersion() error {
 		}
 	}
 
-	// append pre-release-name and/or pre-release-timestamp to the version
-	if len(r.preReleaseName) > 0 || len(r.preReleaseTimestampLayout) > 0 {
-		if r.newVersion, err = preReleaseVersion(r.newVersion, r.preReleaseName, r.preReleaseTimestampLayout); err != nil {
+	// append pre-release-name and/or pre-release-timestamp and/or pre-release-attempt to the version
+	if len(r.preReleaseName) > 0 || len(r.preReleaseTimestampLayout) > 0 || r.preReleaseAttempt >= 0 {
+		if r.newVersion, err = preReleaseVersion(r.newVersion, r.preReleaseName, r.preReleaseTimestampLayout, r.preReleaseAttempt); err != nil {
 			return err
 		}
 	}
