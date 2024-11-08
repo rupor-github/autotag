@@ -6,6 +6,7 @@ This fork has some additional functionality
 
 * added check that git worktree is in a sane state before tag created
 * added ability to push tag to the remote (-P, -R)
+* added attempt number to pre-release part (-A)
 * when no branch specified it will pick up current one from worktree, rather than looking for "main" or "master" (could be specified explicitly).
 
 All original licenses are in place and ownership unchanged. At the moment I do not have time to submit a proper PR back as I took some shortcuts.
